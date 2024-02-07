@@ -1,29 +1,49 @@
 import cv2
 import numpy as np
 
-# Load the image
-image = cv2.imread('IMG_3569.jpg')
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def apply_line_detection(frame):
+    # first we convert the frame to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-# Apply Gaussian blur to the image
-blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    # then apply GaussianBlur to reduce noise and improve line detection overall
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-# Perform edge detection
-edges = cv2.Canny(blurred, 50, 150)
+    # then we can use Canny edge detector to find edges in the frame
+    edges = cv2.Canny(blurred, 50, 150)
 
-# Perform a dilation and erosion to close gaps in between object edges
-dilated = cv2.dilate(edges, None, iterations=2)
-eroded = cv2.erode(dilated, None, iterations=1)
+    # lastly we use HoughLinesP to detect lines in the frame
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=100, maxLineGap=50)
 
-# Perform Hough Line Transform
-lines = cv2.HoughLinesP(eroded, 1, np.pi/180, 100, minLineLength=100, maxLineGap=10)
+    # Draw only a limited amount of detected lines
+    line_frame = frame.copy()
+    for i, line in enumerate(lines):
+        if i < 100:  # Draw only the first 10ish lines
+            x1, y1, x2, y2 = line[0]
+            cv2.line(line_frame, (x1, y1), (x2, y2), (0, 255, 0), 10)
 
-# Draw lines on the image
-for line in lines:
-    x1, y1, x2, y2 = line[0]
-    cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 3)  # Green line
+    # merge the original frame with the line-drawn frame
+    overlay_frame = cv2.addWeighted(frame, 0.8, line_frame, 1, 0)
 
-# Show the image with lines
-cv2.imshow('Image with Lines', image)
-cv2.waitKey(0)
+    # lastly, just return the overlay frame
+    return overlay_frame
+
+# Create a VideoCapture object to capture video from the camera
+cap = cv2.VideoCapture(0)
+
+while True:
+    # Read a frame from the camera
+    ret, frame = cap.read()
+
+    # Apply the line detection function to the frame
+    overlay = apply_line_detection(frame)
+
+    # Display the resulting frame with the overlay
+    cv2.imshow('Video Overlay', overlay)
+
+    # Check for the 'q' key to quit the program
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the VideoCapture object and close all windows
+cap.release()
 cv2.destroyAllWindows()
