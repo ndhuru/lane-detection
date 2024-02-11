@@ -14,7 +14,7 @@ def apply_square_detection(frame, max_lines=None):
     cv2.imshow('Canny Edges', edges)
 
     # Use HoughLinesP to detect lines in the frame
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=50, maxLineGap=100)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=50, maxLineGap=100)
 
     # Draw lines
     line_frame = frame.copy()
@@ -61,7 +61,7 @@ while True:
     ret, frame = cap.read()
 
     # Apply the square detection function to the frame, specifying max_lines
-    overlay = apply_square_detection(frame, max_lines=2 )
+    overlay = apply_square_detection(frame, max_lines=5)
 
     # Display the resulting frame with the overlay
     cv2.imshow('Video Overlay', overlay)
@@ -73,3 +73,16 @@ while True:
 # Release the VideoCapture object and close all windows
 cap.release()
 cv2.destroyAllWindows()
+
+# This code uses the following sources: - OpenCV shape detection: This tutorial explains how to use contour
+# approximation and cv2.approxPolyDP to identify shapes in an image. It also shows how to use cv2.arcLength and
+# cv2.drawContours to draw the shapes on the image. Citation: Rosebrock, A. (2016, January 11). OpenCV shape
+# detection. PyImageSearch. https://www.pyimagesearch.com/2016/02/08/opencv-shape-detection/ - Square detection in
+# image: This question on Stack Overflow discusses how to detect squares in an image using cv2.Canny,
+# cv2.GaussianBlur, cv2.HoughLinesP, and cv2.isContourConvex. It also shows how to calculate the average angle of the
+# lines and draw a vertical or middle line based on it. Citation: user366312. (2010, September 29). Square detection
+# in image. Stack Overflow. https://stackoverflow.com/questions/3823621/square-detection-in-image - How to detect a
+# rectangle and square in an image using OpenCV Python?: This article on TutorialsPoint demonstrates how to use
+# cv2.cvtColor, cv2.threshold, cv2.findContours, and cv2.boundingRect to detect and extract rectangles and squares in
+# an image. Citation: TutorialsPoint. (n.d.). How to detect a rectangle and square in an image using OpenCV Python?
+# TutorialsPoint. https://www.tutorialspoint.com/how-to-detect-a-rectangle-and-square-in-an-image-using-opencv-python
