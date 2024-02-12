@@ -1,66 +1,97 @@
 import cv2
 import numpy as np
 
+# global variable to store previous lines
+prev_lines = []
+# allows for motion blur
 def apply_square_detection(frame, max_lines=None):
-    # convert the frame to grayscale
+    # global var on previous lines, set to list
+    global prev_lines
+
+    # convert frame to grayscale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # apply gaussianblur to reduce noise
+
+    # apply gaussian blur to reduce noise
     blurred = cv2.GaussianBlur(gray, (1, 1), 0)
-    # use canny edge detector to find edges in the frame> >
+
+    # detect edges using canny edge detection
     edges = cv2.Canny(blurred, 50, 150)
-    cv2.imshow('canny edges', edges)  # display the edges for visualization
-    # use houghlinesp to detect lines in the frame
+    cv2.imshow('canny edges', edges)  # show the canny edges
+
+    # apply hough transform to detect lines in the image
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=50, maxLineGap=100)
-    # draw lines
-    line_frame = frame.copy()  # create a copy of the original frame to draw lines on
+
+    # create a copy of the frame to draw lines on
+    line_frame = frame.copy()
+
     if lines is not None:
+        # limit the number of detected lines if specified
         if max_lines is not None:
-            lines = lines[:max_lines]  # limit the number of detected lines if specified
+            lines = lines[:max_lines]
+
         angles = []
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            angle = np.arctan2(y2 - y1, x2 - x1)  # calculate the angle of the line
-            cv2.line(line_frame, (x1, y1), (x2, y2), (0, 255, 0), 10)  # draw the line on the frame
+            # calculate the angle of the line
+            angle = np.arctan2(y2 - y1, x2 - x1)
+            # draw the detected line
+            cv2.line(line_frame, (x1, y1), (x2, y2), (0, 255, 0), 10)
             angles.append(angle)
+
         # calculate the average angle of detected lines
         avg_angle = np.mean(angles)
+
         # calculate the midpoint between two parallel lines
         if len(lines) >= 2:
             x1_avg, y1_avg, x2_avg, y2_avg = np.mean(lines[:, 0, :], axis=0).astype(int)
+            # store the current line coordinates
+            current_line = (x1_avg, y1_avg), (x2_avg, y2_avg)
+
+            # append current line to previous lines
+            prev_lines.append(current_line)
+
+            # if we have more than 5 previous lines, remove the oldest one
+            if len(prev_lines) > 5:
+                prev_lines.pop(0)
+
+            # calculate the average line coordinates from previous lines
+            avg_line = np.mean(prev_lines, axis=0).astype(int)
+            x1_avg, y1_avg = avg_line[0]
+            x2_avg, y2_avg = avg_line[1]
+
+            # draw the smoothed line
             cv2.line(line_frame, (x1_avg, y1_avg), (x2_avg, y2_avg), (255, 0, 0), 10)
-    # merge the original frame with the frame containing drawn lines
+
+    # create an overlay by blending the original frame with the frame containing detected lines
     overlay = cv2.addWeighted(frame, 0.8, line_frame, 1, 0)
     return overlay
-# create a videocapture object to capture video from the camera
+
+# open the default camera
 cap = cv2.VideoCapture(0)
+
 while True:
-    # read a frame from the camera
+    # capture frame-by-frame
     ret, frame = cap.read()
-    # apply the square detection function to the frame, specifying max_lines
+
+    # apply square detection on the frame
     overlay = apply_square_detection(frame, max_lines=4)
-    # display the resulting frame with the overlay
+
+    # display the resulting frame with overlays
     cv2.imshow('video overlay', overlay)
-    # check for the 'q' key to quit the program
+
+    # break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-# release the videocapture object and close all windows
+
+# destroy windows when done
 cap.release()
 cv2.destroyAllWindows()
 
-# sources:
-# opencv shape detection:
-#    this tutorial explains how to use contour approximation and cv2.approxpolydp to identify shapes in an image.
-#    it also shows how to use cv2.arclength and cv2.drawcontours to draw the shapes on the image.
-#    citation: rosebrock, a. (2016, january 11). opencv shape detection. pyimagesearch.
-#    https://www.pyimagesearch.com/2016/02/08/opencv-shape-detection/
-# square detection in image:
-#    this question on stack overflow discusses how to detect squares in an image using cv2.canny,
-#    cv2.gaussianblur, cv2.houghlinesp, and cv2.iscontourconvex. it also shows how to calculate the average angle of the
-#    lines and draw a vertical or middle line based on it.
-#    citation: user366312. (2010, september 29). square detection in image. stack overflow.
-#    https://stackoverflow.com/questions/3823621/square-detection-in-image
-# how to detect a rectangle and square in an image using opencv python?:
-#    this article on tutorialspoint demonstrates how to use cv2.cvtcolor, cv2.threshold, cv2.findcontours, and cv2.boundingrect
-#    to detect and extract rectangles and squares in an image.
-#    citation: tutorialspoint. (n.d.). how to detect a rectangle and square in an image using opencv python?
-#    tutorialspoint. https://www.tutorialspoint.com/how-to-detect-a-rectangle-and-square-in-an-image-using-opencv-python
+
+
+# sources
+# OpenCV-Python: https://github.com/opencv/opencv-python
+# How to install cv2: https://stackoverflow.com/questions/57883178/how-can-i-install-cv2
+# OpenCV-Python in Windows: https://docs.opencv.org/4.x/d5/de5/tutorial_py_setup_in_windows.html
+# OpenCV's perspectiveTransform in Python: https://stackoverflow.com/questions/53861636/how-can-i-implement-opencvs-perspectivetransform-in-python 
+# Drawing Shapes on Images with Python OpenCV Library: https://wellsr.com/python/drawing-shapes-on-images-with-python-opencv-library/
