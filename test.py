@@ -1,7 +1,7 @@
 import cv2 as cv
 import numpy as np
 
-def lineSearch(image):
+def lineDetection(image):
     # Applies gaussian blur, median blur, and canny edge detection on the image
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     gray_scale = cv.GaussianBlur(gray, (15, 15), 0)
@@ -25,10 +25,24 @@ def lineSearch(image):
     mask = cv.bitwise_and(canny_image, canny_image, mask=roi)
     cv.rectangle(image, (roi_tl_x, roi_tl_y), (roi_br_x, roi_br_y), (255, 0, 0), 5)
 
-
     # Creates the hough lines used for the line detection
-    lines = cv.HoughLinesP(mask, 1, np.pi / 180, threshold=100, minLineLength=10, maxLineGap=15)
+    lines = cv.HoughLinesP(mask, 1, np.pi / 180, threshold=10, minLineLength=30, maxLineGap=5)
 
+    return lines
+
+
+def drawParallelLines(image, lines):
+    # check if there are any lines detected
+    if lines is not None:
+        # loop over the lines
+        for line in lines:
+            # get the coordinates of the line endpoints
+            x1, y1, x2, y2 = line[0]
+            # draw the line on the original image
+            cv.line(image, (x1, y1), (x2, y2), (135, 206, 235), 10)  # Changed color to sky-blue
+
+
+def drawCenterLine(image, lines):
     # Prevents program from crashing if no lines detected
     if lines is not None:
         # Variables needed to find the centerline
@@ -38,9 +52,6 @@ def lineSearch(image):
             # Creates array of lines
             x1, y1, x2, y2 = line[0]
             lines_list.append(line[0])
-
-            # Displays the lines
-            cv.line(image, (x1, y1), (x2, y2), (0, 255, 0), 10)
 
             # Calculates the slopes of the lines
             slope = 0
@@ -54,7 +65,8 @@ def lineSearch(image):
                 x1, y1, x2, y2 = lines_list[i]
                 x3, y3, x4, y4 = lines_list[j]
                 # Calculates and displays the centerline
-                cv.line(image, ((x1 + x3) // 2, (y1 + y3) // 2), ((x2 + x4) // 2, (y2 + y4) // 2), (0, 0, 255), 10)
+                cv.line(image, ((x1 + x3) // 2, (y1 + y3) // 2), ((x2 + x4) // 2, (y2 + y4) // 2), (51, 51, 51), 10)
+
 
 def showVideo(image):
     # Returns the processed frame
@@ -72,15 +84,22 @@ def main():
         # While the video is playing, read the frame, process it & display it
         while videoIsPlaying:
             videoIsPlaying, frame = video.read()
-            lineSearch(frame)
+            # Perform line detection
+            lines = lineDetection(frame)
+            # Draw parallel lines
+            drawParallelLines(frame, lines)
+            # Draw centerline
+            drawCenterLine(frame, lines)
+            # Display processed frame
             showVideo(frame)
 
         # Destroys the program when exiting
         cv.destroyAllWindows()
 
     # Removes the error message when you stop the program
-    except:
+    except Exception as e:
         print("Quitting the program")
+        print(e)
     finally:
         exit()
 
