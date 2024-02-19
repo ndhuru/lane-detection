@@ -26,7 +26,7 @@ def lineDetection(image):
     cv.rectangle(image, (roi_tl_x, roi_tl_y), (roi_br_x, roi_br_y), (255, 0, 0), 5)
 
     # Creates the hough lines used for the line detection
-    lines = cv.HoughLinesP(mask, 1, np.pi / 180, threshold=10, minLineLength=30, maxLineGap=5)
+    lines = cv.HoughLinesP(mask, 1, np.pi / 180, threshold=20, minLineLength=30, maxLineGap=5)
 
     return lines
 
@@ -107,3 +107,14 @@ def main():
 # Runs the program
 if __name__ == "__main__":
     main()
+
+
+
+# sources:
+# https://geeksforgeeks.org/python-play-a-video-using-opencv/
+# https://github.com/adityagandhamal/road-lane-detection/blob/master/detection_on_vid.py
+# https://pyimagesearch.com/2021/01/19/image-masking-with-opencv/
+# https://www.geeksforgeeks.org/program-find-slope-line/
+# https://www.geeksforgeeks.org/python-nested-loops/
+# https://stackoverflow.com/questions/45322630/how-to-detect-lines-in-opencv
+# https://hackthedeveloper.com/line-detection-opencv-python/
