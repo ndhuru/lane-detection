@@ -26,7 +26,7 @@ def lineDetection(image):
     cv.rectangle(image, (roi_tl_x, roi_tl_y), (roi_br_x, roi_br_y), (255, 0, 0), 5)
 
     # Creates the hough lines used for the line detection
-    lines = cv.HoughLinesP(mask, 1, np.pi / 180, threshold=20, minLineLength=30, maxLineGap=5)
+    lines = cv.HoughLinesP(mask, 1, np.pi / 180, threshold=30, minLineLength=30, maxLineGap=5)
 
     return lines
 
@@ -98,7 +98,7 @@ def main():
 
     # Removes the error message when you stop the program
     except Exception as e:
-        print("Quitting the program")
+        print("error detected, cant be parsed so program quits")
         print(e)
     finally:
         exit()
