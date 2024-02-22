@@ -10,21 +10,24 @@ video_source = 0
 # Define the region of interest for lane detection
 def region_of_interest(img, vertices):
     # Define a blank mask to start with
-    mask = np.zeros_like(img)
+    # Creates a mask around desired area
+    roi = np.zeros(img.shape[:2], dtype="uint8")
+    # Calculate the center coordinates of the screen
+    center_x = img.shape[1] // 2
+    center_y = img.shape[0] // 2
+    # Calculate the width and height of the ROI
+    roi_width = 350
+    roi_height = 350
+    # Calculate the top-left and bottom-right coordinates of the ROI
+    roi_tl_x = center_x - roi_width // 2
+    roi_tl_y = center_y - roi_height // 2
+    roi_br_x = center_x + roi_width // 2
+    roi_br_y = center_y + roi_height // 2
+    cv2.rectangle(roi, (roi_tl_x, roi_tl_y), (roi_br_x, roi_br_y), 1, -1)
+    mask = cv2.bitwise_and(img, img, mask=roi)
+    cv2.rectangle(img, (roi_tl_x, roi_tl_y), (roi_br_x, roi_br_y), (255, 0, 255), 5)
+    return mask
 
-    # Define a 3 channel or 1 channel color to fill the mask with depending on the input image
-    if len(img.shape) > 2:
-        channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
-        ignore_mask_color = (255,) * channel_count
-    else:
-        ignore_mask_color = 255
-
-    # Fill pixels inside the polygon defined by "vertices" with the fill color
-    cv2.fillPoly(mask, vertices, ignore_mask_color)
-
-    # Return the image only where mask pixels are nonzero
-    masked_image = cv2.bitwise_and(img, mask)
-    return masked_image
 
 
 # Define the Canny edge detection function
@@ -57,7 +60,7 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
 
 
 # Define the function to draw the lines
-def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
+def draw_lines(img, lines, color=[255, 0, 0], thickness=10):
     # Iterate over the lines and draw them on the image
     for line in lines:
         for x1, y1, x2, y2 in line:
@@ -66,67 +69,31 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
 
 # Define the function to draw the centerline
 def draw_centerline(img, lines, color=[0, 255, 0], thickness=2):
-    # Initialize the lists to store the coordinates and slopes of the left and right lane lines
-    left_x = []
-    left_y = []
-    left_slope = []
-    right_x = []
-    right_y = []
-    right_slope = []
-
-    # Iterate over the lines and separate them into left and right lane lines based on their slope and position
-
-    try:
+    if lines is not None:
+        # Variables needed to find the centerline
+        slope_arr = []
+        lines_list = []
         for line in lines:
-            for x1, y1, x2, y2 in line:
-                slope = (y2 - y1) / (x2 - x1)
-                if slope < 0 and x1 < img.shape[1] / 2 and x2 < img.shape[1] / 2:
-                    # Left lane line
-                    left_x.append(x1)
-                    left_x.append(x2)
-                    left_y.append(y1)
-                    left_y.append(y2)
-                    left_slope.append(slope)
-                elif slope > 0 and x1 > img.shape[1] / 2 and x2 > img.shape[1] / 2:
-                    # Right lane line
-                    right_x.append(x1)
-                    right_x.append(x2)
-                    right_y.append(y1)
-                    right_y.append(y2)
-                    right_slope.append(slope)
-    except ValueError:
-        pass
+            try:
+                # Creates array of lines
+                x1, y1, x2, y2 = line[0]
+                lines_list.append(line[0])
 
-    # If there are no left or right lane lines, return without drawing the centerline
-    if len(left_x) == 0 or len(right_x) == 0:
-        return
+                # Calculates the slopes of the lines
+                slope = 0
+                if x2 - x1 != 0:
+                    slope = (y2 - y1) / (x2 - x1)
+                slope_arr.append(slope)
+            except:
+                pass
 
-    # Find the average slope and intercept of the left and right lane lines
-    left_slope_mean = np.mean(left_slope)
-    left_intercept = np.mean(left_y) - left_slope_mean * np.mean(left_x)
-    right_slope_mean = np.mean(right_slope)
-    right_intercept = np.mean(right_y) - right_slope_mean * np.mean(right_x)
-
-    # Find the coordinates of the intersection point of the left and right lane lines
-    x_intersect = (right_intercept - left_intercept) / (left_slope_mean - right_slope_mean)
-    y_intersect = left_slope_mean * x_intersect + left_intercept
-
-    # Find the coordinates of the center point of the image
-    x_center = img.shape[1] / 2
-    y_center = img.shape[0] / 2
-
-    # Find the slope and intercept of the centerline
-    center_slope = (y_center - y_intersect) / (x_center - x_intersect)
-    center_intercept = y_center - center_slope * x_center
-
-    # Find the coordinates of the endpoints of the centerline
-    y1 = img.shape[0]
-    x1 = (y1 - center_intercept) / center_slope
-    y2 = y_intersect
-    x2 = (y2 - center_intercept) / center_slope
-
-    # Draw the centerline on the image
-    cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), color, thickness)
+        # Loops through the slope array to calculate the centerline
+        for i in range(len(slope_arr)):
+            for j in range(len(slope_arr)):
+                x1, y1, x2, y2 = lines_list[i]
+                x3, y3, x4, y4 = lines_list[j]
+                # Calculates and displays the centerline
+                cv2.line(img, ((x1 + x3) // 2, (y1 + y3) // 2), ((x2 + x4) // 2, (y2 + y4) // 2), (251, 13, 136), 10)
 
 
 # Define the function to overlay the lines on the original image
@@ -163,6 +130,7 @@ while (cap.isOpened()):
     lines = hough_lines(edges, 1, np.pi / 180, 15, 40, 20)
 
     # Draw the centerline on the image
+    # Draw the centerline on the image
     draw_centerline(lines, lines)
 
     # Overlay the lines on the original image
@@ -178,4 +146,3 @@ while (cap.isOpened()):
 # Release the video capture object and close all windows
 cap.release()
 cv2.destroyAllWindows()
-
