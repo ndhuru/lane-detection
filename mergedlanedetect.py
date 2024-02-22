@@ -1,10 +1,8 @@
 # Import the required modules
 import cv2
 import numpy as np
-import math
 
-# Define the source of the video
-# You can change this to 0 if you want to use your device camera
+
 video_source = 0
 
 # Define the region of interest for lane detection
