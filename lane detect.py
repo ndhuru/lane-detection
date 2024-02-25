@@ -1,120 +1,121 @@
-import cv2 as cv
+import cv2
 import numpy as np
 
-def lineDetection(image):
-    # Applies gaussian blur, median blur, and canny edge detection on the image
-    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    gray_scale = cv.GaussianBlur(gray, (15, 15), 0)
-    median_blur = cv.medianBlur(gray_scale, 5)
-    canny_image = cv.Canny(median_blur, 100, 20)
+# Define the video capture object
+cap = cv2.VideoCapture(0)
 
-    # Creates a mask around desired area
-    roi = np.zeros(image.shape[:2], dtype="uint8")
-    # Calculate the center coordinates of the screen
-    center_x = image.shape[1] // 2
-    center_y = image.shape[0] // 2
-    # Calculate the width and height of the ROI
-    roi_width = 350
-    roi_height = 350
-    # Calculate the top-left and bottom-right coordinates of the ROI
-    roi_tl_x = center_x - roi_width // 2
-    roi_tl_y = center_y - roi_height // 2
-    roi_br_x = center_x + roi_width // 2
-    roi_br_y = center_y + roi_height // 2
-    cv.rectangle(roi, (roi_tl_x, roi_tl_y), (roi_br_x, roi_br_y), 1, -1)
-    mask = cv.bitwise_and(canny_image, canny_image, mask=roi)
-    cv.rectangle(image, (roi_tl_x, roi_tl_y), (roi_br_x, roi_br_y), (255, 0, 255), 5)
+# Define the parameters for Canny edge detector
+low_threshold = 50
+high_threshold = 150
 
-    # Creates the hough lines used for the line detection
-    lines = cv.HoughLinesP(mask, 1, np.pi / 180, threshold=60, minLineLength=30, maxLineGap=5)
+# Define the parameters for Gaussian blur
+kernel_size = 5
 
-    return lines
+# Define the parameters for Hough transform
+rho = 1
+theta = np.pi / 180
+threshold = 2
+min_line_length = 15
+max_line_gap = 50
 
+# Define the color for the lane lines
+line_color = (255, 0, 0)  # Blue color for lines
 
-def drawParallelLines(image, lines):
-    # check if there are any lines detected
-    if lines is not None:
-        # loop over the lines
-        for line in lines:
-            # get the coordinates of the line endpoints
-            x1, y1, x2, y2 = line[0]
-            # draw the line on the original image
-            cv.line(image, (x1, y1), (x2, y2), (255, 206, 235), 10)  # Changed color to sky-blue
+# Define the thickness for the lane lines
+line_thickness = 10
 
+# Loop until the user presses 'q' or the video ends
+while cap.isOpened():
+    # Read a frame from the video
+    ret, frame = cap.read()
+    if ret:
+        # Convert the frame to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-def drawCenterLine(image, lines):
-    # Prevents program from crashing if no lines detected
-    if lines is not None:
-        # Variables needed to find the centerline
-        slope_arr = []
-        lines_list = []
-        for line in lines:
-            # Creates array of lines
-            x1, y1, x2, y2 = line[0]
-            lines_list.append(line[0])
+        # Apply Gaussian blur
+        blur = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
 
-            # Calculates the slopes of the lines
-            slope = 0
-            if x2 - x1 != 0:
-                slope = (y2 - y1) / (x2 - x1)
-            slope_arr.append(slope)
+        # Apply Canny edge detector
+        edges = cv2.Canny(blur, low_threshold, high_threshold)
 
-        # Loops through the slope array to calculate the centerline
-        for i in range(len(slope_arr)):
-            for j in range(len(slope_arr)):
-                x1, y1, x2, y2 = lines_list[i]
-                x3, y3, x4, y4 = lines_list[j]
-                # Calculates and displays the centerline
-                cv.line(image, ((x1 + x3) // 2, (y1 + y3) // 2), ((x2 + x4) // 2, (y2 + y4) // 2), (251, 13, 136), 10)
+        # Create a mask image with a square region
+        mask = np.zeros_like(edges)
+        mask_h, mask_w = mask.shape
+        square_size = min(mask_h, mask_w) // 2
+        center_x, center_y = mask_w // 2, mask_h // 2
+        cv2.rectangle(mask, (center_x - square_size // 2, center_y - square_size // 2),
+                      (center_x + square_size // 2, center_y + square_size // 2), (255), -1)
 
+        # Apply the mask
+        masked_edges = cv2.bitwise_and(edges, mask)
 
-def showVideo(image):
-    # Returns the processed frame
-    cv.imshow("Detected Lines", image)
-    cv.waitKey(1)
+        # Apply Hough transform to find the lines
+        lines = cv2.HoughLinesP(masked_edges, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
 
+        # Draw the lines on the original frame
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                cv2.line(frame, (x1, y1), (x2, y2), line_color, line_thickness)
 
-def main():
-    try:
-        videoIsPlaying = True
+        # Define the color for the centerline
+        center_color = (0, 255, 0)  # Green color for centerline
 
-        # Starts the video capture
-        video = cv.VideoCapture(0)
+        # Define the thickness for the centerline
+        center_thickness = 5
 
-        # While the video is playing, read the frame, process it & display it
-        while videoIsPlaying:
-            videoIsPlaying, frame = video.read()
-            # Perform line detection
-            lines = lineDetection(frame)
-            # Draw parallel lines
-            drawParallelLines(frame, lines)
-            # Draw centerline
-            drawCenterLine(frame, lines)
-            # Display processed frame
-            showVideo(frame)
+        # Initialize the lists to store the coordinates of the two lines
+        x1_list = []
+        y1_list = []
+        x2_list = []
+        y2_list = []
 
-        # Destroys the program when exiting
-        cv.destroyAllWindows()
+        # Loop through the lines and append the coordinates to the lists
+        try:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                x1_list.append(x1)
+                y1_list.append(y1)
+                x2_list.append(x2)
+                y2_list.append(y2)
+        except:
+            pass
 
-    # Removes the error message when you stop the program
-    except Exception as e:
-        print("error detected, cant be parsed so program quits")
-        print(e)
-    finally:
-        exit()
+        try:
+            x1_avg = sum(x1_list) / len(x1_list)
+            y1_avg = sum(y1_list) / len(y1_list)
+            x2_avg = sum(x2_list) / len(x2_list)
+            y2_avg = sum(y2_list) / len(y2_list)
+        except:
+            pass
 
 
-# Runs the program
-if __name__ == "__main__":
-    main()
+        # Draw the centerline on the original frame
+        cv2.line(frame, (int(x1_avg), int(y1_avg)), (int(x2_avg), int(y2_avg)), center_color, center_thickness)
 
+        # Draw the outline of the mask
+        mask_outline = cv2.cvtColor(masked_edges, cv2.COLOR_GRAY2BGR)
+        mask_outline = cv2.rectangle(mask_outline, (center_x - square_size // 2, center_y - square_size // 2),
+                                     (center_x + square_size // 2, center_y + square_size // 2), (0, 255, 0), 2)
 
+        # Combine the original frame with the mask outline
+        result = cv2.addWeighted(frame, 1, mask_outline, 0.5, 0)
 
-# sources:
-# https://geeksforgeeks.org/python-play-a-video-using-opencv/
-# https://github.com/adityagandhamal/road-lane-detection/blob/master/detection_on_vid.py
-# https://pyimagesearch.com/2021/01/19/image-masking-with-opencv/
-# https://www.geeksforgeeks.org/program-find-slope-line/
-# https://www.geeksforgeeks.org/python-nested-loops/
-# https://stackoverflow.com/questions/45322630/how-to-detect-lines-in-opencv
-# https://hackthedeveloper.com/line-detection-opencv-python/
+        # Show the combined frame
+        cv2.imshow('Lane Detection', result)
+
+        # Wait for a key press
+        key = cv2.waitKey(1) & 0xFF
+
+        # If the user presses 'q', exit the loop
+        if key == ord('q'):
+            break
+    else:
+        # If the video ends, exit the loop
+        break
+
+# Release the video capture object
+cap.release()
+
+# Destroy all the windows
+cv2.destroyAllWindows()
