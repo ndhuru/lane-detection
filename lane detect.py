@@ -1,90 +1,77 @@
-# import necessary libraries
-import cv2
+import cv2 as cv
 import numpy as np
 
-# initialize video capture
-cap = cv2.VideoCapture(0)
+# Define the height and width of the mask
+mask_height = 300
+mask_width = 300
 
-# set thresholds for edge detection
-low_threshold = 50
-high_threshold = 150
-# set kernel size for Gaussian blur
-kernel_size = 5
-# parameters for Hough transform
-rho = 1
-theta = np.pi / 180
-threshold = 2
-min_line_length = 15
-max_line_gap = 50
-# define line properties
-line_color = (255, 0, 0)
-line_thickness = 10
-# main loop for video capture
-while cap.isOpened():
-    # read frame from video capture
-    ret, frame = cap.read()
-    if ret:
-        # convert frame to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # apply Gaussian blur
-        blur = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
-        # detect edges using Canny edge detection
-        edges = cv2.Canny(blur, low_threshold, high_threshold)
-        # create a mask for region of interest
-        mask = np.zeros_like(edges)
-        mask_h, mask_w = mask.shape
-        square_size = min(mask_h, mask_w) // 2
-        center_x, center_y = mask_w // 2, mask_h // 2
-        cv2.rectangle(mask, (center_x - square_size // 2, center_y - square_size // 2),
-                      (center_x + square_size // 2, center_y + square_size // 2), (255), -1)
-        # apply mask to edges
-        masked_edges = cv2.bitwise_and(edges, mask)
-        # detect lines using Hough transform
-        lines = cv2.HoughLinesP(masked_edges, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
-        if lines is not None:
-            # draw detected lines on frame
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
-                cv2.line(frame, (x1, y1), (x2, y2), line_color, line_thickness)
-        # find center line
-        center_color = (0, 255, 0)
-        center_thickness = 5
-        x1_list = []
-        y1_list = []
-        x2_list = []
-        y2_list = []
-        try:
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
-                x1_list.append(x1)
-                y1_list.append(y1)
-                x2_list.append(x2)
-                y2_list.append(y2)
-        except:
-            pass
-        try:
-            x1_avg = sum(x1_list) / len(x1_list)
-            y1_avg = sum(y1_list) / len(y1_list)
-            x2_avg = sum(x2_list) / len(x2_list)
-            y2_avg = sum(y2_list) / len(y2_list)
-        except:
-            pass
-        # draw center line on frame
-        cv2.line(frame, (int(x1_avg), int(y1_avg)), (int(x2_avg), int(y2_avg)), center_color, center_thickness)
-        # draw mask outline on frame
-        mask_outline = cv2.cvtColor(masked_edges, cv2.COLOR_GRAY2BGR)
-        mask_outline = cv2.rectangle(mask_outline, (center_x - square_size // 2, center_y - square_size // 2),
-                                     (center_x + square_size // 2, center_y + square_size // 2), (0, 255, 0), 2)
-        # combine frame with mask outline
-        result = cv2.addWeighted(frame, 1, mask_outline, 0.5, 0)
-        # display result
-        cv2.imshow('Lane Detection', result)
-        # check for 'q' key to exit
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-    else:
-        break
-# release video capture and close windows
-cap.release()
-cv2.destroyAllWindows()
+def processImage(image):
+    # Applies gaussian blur, median blur, and canny edge detection on the image
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    gray_scale = cv.GaussianBlur(gray, (15, 15), 1)
+    median_blur = cv.medianBlur(gray_scale, 5)
+    canny_image = cv.Canny(median_blur, 100, 20)
+
+    # Creates a black image with the same size as the original image
+    mask = np.zeros_like(gray)
+
+    # Calculates the coordinates of the top-left and bottom-right corners of the mask
+    height, width = mask.shape
+    x1 = (width - mask_width) // 2
+    y1 = (height - mask_height) // 2
+    x2 = x1 + mask_width
+    y2 = y1 + mask_height
+
+    # Fills the mask with white color inside the square region
+    mask[y1:y2, x1:x2] = 255
+
+    # Applies the mask to the canny image
+    canny_image = cv.bitwise_and(canny_image, mask)
+
+    # Detects the contours
+    contours, hierarchy = cv.findContours(canny_image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+
+    # Prevents program from crashing if no contours detected
+    if len(contours) > 0:
+        # Draws contours
+        cv.drawContours(image, contours, -1, (210, 130, 250), 5)
+
+        # Finds minimum length of contours
+        min_length = min(len(cnt) for cnt in contours)
+
+        # Calculates the average of the contour points
+        midpoint_x_arr = np.mean([contour[:, 0, :][:min_length][:, 0] for contour in contours], axis=0).astype(int)
+        midpoint_y_arr = np.mean([contour[:, 0, :][:min_length][:, 1] for contour in contours], axis=0).astype(int)
+
+        # Displays the centerline
+        for i in range(len(midpoint_x_arr) - 1):
+            cv.line(image, (midpoint_x_arr[i], midpoint_y_arr[i]), (midpoint_x_arr[i + 1], midpoint_y_arr[i + 1]),
+                    (0, 0, 255), 5)
+
+    # Draws a pink outline around the mask
+    cv.rectangle(image, (x1, y1), (x2, y2), (200, 144, 255), 2) # pink color is (255, 0, 255) in BGR format
+
+def displayImage(image):
+    # Displays the processed frame
+    cv.imshow("Detected Lines", image)
+    cv.waitKey(1)
+
+if __name__ == "__main__":
+    try:
+        # Variable needed for displaying the video
+        videoIsPlaying = True
+
+        # Starts the video capture
+        video = cv.VideoCapture(0)
+
+        # While the video is playing, read the frame, process it & display it
+        while videoIsPlaying:
+            videoIsPlaying, frame = video.read()
+            processImage(frame)
+            displayImage(frame)
+
+        # Destroys the program when exiting
+        cv.destroyAllWindows()
+
+    except Exception as e:
+        print("Quitting the program:", e)
