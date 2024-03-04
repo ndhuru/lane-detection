@@ -7,17 +7,14 @@ cap = cv2.VideoCapture(0)
 # Define the parameters for Canny edge detector
 low_threshold = 50
 high_threshold = 150
-
 # Define the parameters for Gaussian blur
 kernel_size = 5
-
 # Define the parameters for Hough transform
 rho = 1
 theta = np.pi / 180
 threshold = 2
 min_line_length = 15
 max_line_gap = 50
-
 # Define the color for the lane lines
 line_color = (255, 0, 0)  # Blue color for lines
 
@@ -100,7 +97,6 @@ while cap.isOpened():
 
         # Combine the original frame with the mask outline
         result = cv2.addWeighted(frame, 1, mask_outline, 0.5, 0)
-
         # Show the combined frame
         cv2.imshow('Lane Detection', result)
 
